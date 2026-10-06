@@ -1,6 +1,7 @@
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { ArrowUpRight, Boxes, Fingerprint, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { goatCounterEvent, simpleAnalyticsEvent } from './telemetry'
 import { LandingPage } from './pages/LandingPage'
 import { JourneyPage } from './pages/JourneyPage'
 import { PlaygroundPage } from './pages/PlaygroundPage'
@@ -11,6 +12,22 @@ import { AboutPage } from './pages/AboutPage'
 const links = [
   ['Journey', '/journey/password'], ['Playground', '/playground'], ['Architecture', '/architecture'], ['Audit', '/audit'], ['About', '/about'],
 ]
+
+function PageTelemetry() {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    goatCounterEvent(pathname)
+    simpleAnalyticsEvent('page_change', { path: pathname })
+
+    // The GoatCounter script is async; count the route once it finishes loading.
+    if (!(window as any).goatcounter?.count) {
+      document.querySelector('script[data-goatcounter]')?.addEventListener('load', () => goatCounterEvent(pathname), { once: true })
+    }
+  }, [pathname])
+
+  return null
+}
 
 function Header() {
   const [open, setOpen] = useState(false)
@@ -33,7 +50,7 @@ function Header() {
 function Footer() { return <footer className="site-footer"><div><span className="footer-brand"><Boxes size={17} /> Identity Evolution Lab</span><span> An educational IAM simulation. No real authentication or backend.</span></div><span>Built to make identity architecture understandable.</span></footer> }
 
 export default function App() {
-  return <div className="app-shell"><Header /><main id="main"><Routes>
+  return <div className="app-shell"><PageTelemetry /><Header /><main id="main"><Routes>
     <Route path="/" element={<LandingPage />} />
     <Route path="/journey" element={<JourneyPage />} />
     <Route path="/journey/:stageId" element={<JourneyPage />} />

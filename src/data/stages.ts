@@ -53,7 +53,7 @@ export const stages: Stage[] = [
   {
     id: 'oauth', number: '05', group: 'Federation', title: 'OAuth 2.0', short: 'OAuth 2.0', eyebrow: 'Delegated access',
     summary: 'Expense Portal requests permission to call a protected Boo Corp API.',
-    problem: 'An application should not need Alex’s password to access a separate API.', introduced: 'A delegated authorization flow and scoped access token.', improved: 'The client gets limited API access without handling the user’s password.', tradeoff: 'Redirect, consent, client, scope, state, and token handling need care.',
+    problem: 'Expense Portal needs to read Alex’s data from Expense API. The API needs to know which operations Alex has allowed the portal to perform.', introduced: 'A delegated authorization flow and scoped access token.', improved: 'The client gets limited API access without handling the user’s password.', tradeoff: 'Redirect, consent, client, scope, state, and token handling need care.',
     hood: ['The client redirects Alex to an authorization server with client_id, redirect_uri, scope, state, and PKCE challenge.', 'The server returns a short-lived authorization code to the registered redirect URI.', 'The client exchanges the code with its PKCE verifier for an access token.'],
     security: ['State binds the callback to the initiated flow.', 'PKCE helps protect a public client if an authorization code is intercepted.', 'OAuth 2.0 primarily delegates authorization; it does not by itself standardize a login identity assertion.'],
     details: ['Actors: owner, client, authorization server, API', 'Response type: code', 'Public client protection: PKCE'],
@@ -61,7 +61,7 @@ export const stages: Stage[] = [
   {
     id: 'oidc', number: '06', group: 'Federation', title: 'OpenID Connect + SSO', short: 'OIDC / SSO', eyebrow: 'Shared identity',
     summary: 'Boo Identity authenticates Alex and helps multiple applications trust that result.',
-    problem: 'Each application should not manage a separate password for Alex.', introduced: 'An identity layer over OAuth 2.0, including an ID token.', improved: 'Apps can rely on Boo Identity; its session can enable SSO.', tradeoff: 'Trust configuration, token validation, logout, and IdP availability matter.',
+    problem: 'Expense Portal and HR Portal need to know who signed in at Boo Identity. An OAuth access token is meant for an API, not as a login assertion for either app.', introduced: 'An identity layer over OAuth 2.0, including an ID token.', improved: 'Apps can rely on Boo Identity; its session can enable SSO.', tradeoff: 'Trust configuration, token validation, logout, and IdP availability matter.',
     hood: ['The openid scope requests OpenID Connect. The client sends a nonce and validates it in the ID token.', 'The ID token is for the client and describes the authenticated subject. The access token is for an API.', 'A later app can redirect to the same IdP and reuse its existing session without asking for credentials again.'],
     security: ['Each client validates issuer, audience, signature, expiry, and nonce as applicable.', 'Expense Portal and HR Portal do not share Alex’s password.', 'SSO reuses an IdP session; each application still establishes its own local signed-in state.'],
     details: ['OAuth: what may this client access?', 'OIDC: who authenticated?', 'ID token → client; access token → API'],

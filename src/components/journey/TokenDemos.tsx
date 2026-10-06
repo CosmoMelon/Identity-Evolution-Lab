@@ -10,6 +10,7 @@ const header = { alg: 'RS256', typ: 'JWT', kid: 'boo-key-01' }
 const baseClaims = { sub: 'alex-morgan', role: 'manager', scope: 'expenses:read', iss: 'https://identity.boo.example', aud: 'expense-api' }
 const signature = 'illustrative-signature-only'
 const encode = (value: object) => btoa(JSON.stringify(value)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+const refreshLabel = (generation: number) => generation < 26 ? String.fromCharCode(65 + generation) : `R${generation + 1}`
 
 export function JwtDemo() {
   const lab = useLab()
@@ -32,6 +33,8 @@ export function JwtDemo() {
   const trusted = signatureOk && issuerOk && audienceOk && expiryOk
   const allowed = trusted && scopeOk
   const status = !trusted ? 401 : scopeOk ? 200 : 403
+  const currentRefresh = refreshLabel(refreshGeneration)
+  const previousRefresh = refreshGeneration > 0 ? refreshLabel(refreshGeneration - 1) : null
 
   function issue() {
     setIssued(true); setInspect(false); setTampered(false); setScenario('valid'); setValidated(false)
@@ -54,15 +57,17 @@ export function JwtDemo() {
 
   function rotateRefresh() {
     if (!accessExpired || familyRevoked) return
-    setRefreshGeneration(1); setAccessExpired(false); setScenario('valid'); setTampered(false)
+    const nextGeneration = refreshGeneration + 1
+    setRefreshGeneration(nextGeneration); setAccessExpired(false); setScenario('valid'); setTampered(false)
     setExpiresAt(Math.floor(Date.now() / 1000) + 300)
     setValidated(false)
-    lab.log({ type: 'TOKEN_REFRESHED', application: 'Boo Identity', result: 'success', method: 'refresh-token rotation simulation', metadata: { consumed: 'refresh A', issued: 'refresh B', accessToken: 2 } })
+    lab.log({ type: 'TOKEN_REFRESHED', application: 'Boo Identity', result: 'success', method: 'refresh-token rotation simulation', metadata: { consumed: `refresh ${currentRefresh}`, issued: `refresh ${refreshLabel(nextGeneration)}`, accessToken: nextGeneration + 1 } })
   }
 
   function reuseOldRefresh() {
+    if (!previousRefresh || familyRevoked) return
     setFamilyRevoked(true)
-    lab.log({ type: 'REFRESH_REUSE_DETECTED', application: 'Boo Identity', result: 'denied', method: 'refresh-token rotation simulation', metadata: { reused: 'refresh A', action: 'refresh family revoked' } })
+    lab.log({ type: 'REFRESH_REUSE_DETECTED', application: 'Boo Identity', result: 'denied', method: 'refresh-token rotation simulation', metadata: { reused: `refresh ${previousRefresh}`, action: 'refresh family revoked' } })
   }
 
   const check = (label: string, pass: boolean | null) => <li key={label}><span className={pass === null ? 'jwt-check-pending' : pass ? 'jwt-check-pass' : 'jwt-check-fail'}>{pass === null ? '—' : pass ? '✓' : '✕'}</span><span>{label}</span></li>
@@ -97,13 +102,13 @@ export function JwtDemo() {
         ]}</ul><Result success={allowed} title={allowed ? 'Request allowed' : status === 401 ? 'Token rejected' : 'Permission denied'} code={status === 200 ? '200 OK' : status === 401 ? '401 Unauthorized' : '403 Forbidden'}>{status === 401 ? 'The API cannot trust this token. It stops before authorization.' : status === 403 ? 'The token is valid, but lacks the permission needed for this request.' : 'The token is trusted and carries the required scope.'}</Result></>}
       </>}
     </DemoFrame>
-    <DemoFrame title="Access + refresh token cycle" subtitle="See what happens when a short-lived access token expires." badge="Token lifecycle">
-      <div className="token-lifecycle"><div><strong>Access token {refreshGeneration + 1}</strong><Status tone={accessExpired ? 'bad' : 'good'}>{accessExpired ? 'Expired' : 'API requests'}</Status><p>Sent to the Expense API. Short lifetime limits how long a stolen token works.</p></div><ArrowRight size={18} /><div><strong>Refresh token {refreshGeneration ? 'B' : 'A'}</strong><Status tone={familyRevoked ? 'bad' : 'neutral'}>{familyRevoked ? 'Family revoked' : 'Boo Identity only'}</Status><p>Sent to the authorization server for a replacement. Never sent to the API.</p></div></div>
-      <div className="action-row"><Button variant="secondary" onClick={expireAccess} disabled={!issued || accessExpired}>Expire access token</Button><Button onClick={rotateRefresh} disabled={!issued || !accessExpired || familyRevoked || refreshGeneration > 0}>Use refresh token A <RefreshCcw size={15} /></Button>{refreshGeneration > 0 && <Button variant="secondary" onClick={reuseOldRefresh} disabled={familyRevoked}>Replay old token A</Button>}</div>
+    <DemoFrame title="Access + refresh token cycle" subtitle="Each refresh token is used once; its replacement can refresh again later." badge="Token lifecycle">
+      <div className="token-lifecycle"><div><strong>Access token {refreshGeneration + 1}</strong><Status tone={accessExpired ? 'bad' : 'good'}>{accessExpired ? 'Expired' : 'API requests'}</Status><p>Sent to the Expense API. Short lifetime limits how long a stolen token works.</p></div><ArrowRight size={18} /><div><strong>Refresh token {currentRefresh}</strong><Status tone={familyRevoked ? 'bad' : 'neutral'}>{familyRevoked ? 'Family revoked' : 'Boo Identity only'}</Status><p>Sent to the authorization server for a replacement. Never sent to the API.</p></div></div>
+      <div className="action-row"><Button variant="secondary" onClick={expireAccess} disabled={!issued || accessExpired}>Expire access token</Button><Button onClick={rotateRefresh} disabled={!issued || !accessExpired || familyRevoked}>Use refresh token {currentRefresh} <RefreshCcw size={15} /></Button>{previousRefresh && <Button variant="secondary" onClick={reuseOldRefresh} disabled={familyRevoked}>Replay old token {previousRefresh}</Button>}</div>
       {!issued && <p className="fine-print">Issue an access token above to begin the cycle.</p>}
-      {accessExpired && !familyRevoked && <Result success={false} title="Access token no longer works" code="401 Unauthorized">This demo advances the clock past the token’s expiry. The client uses its refresh token at Boo Identity to request a replacement.</Result>}
-      {refreshGeneration > 0 && !familyRevoked && !accessExpired && <Result success title="Fresh access token issued">Boo Identity consumed refresh token A and issued access token 2 plus refresh token B. Token A is now invalid.</Result>}
-      {familyRevoked && <Result success={false} title="Old refresh token reused">Reuse can signal theft. Boo Identity revokes this refresh-token family, so token B cannot refresh again.</Result>}
+      {accessExpired && !familyRevoked && <div className="token-expired-result"><Result success={false} title="Access token no longer works" code="401 Unauthorized">This demo advances the clock past the token’s expiry. The client uses its refresh token at Boo Identity to request a replacement.</Result></div>}
+      {previousRefresh && !familyRevoked && !accessExpired && <div className="token-refresh-result"><Result success title="Fresh access token issued">Boo Identity consumed refresh token {previousRefresh} and issued access token {refreshGeneration + 1} plus refresh token {currentRefresh}. Token {previousRefresh} is now invalid. You can repeat the cycle with token {currentRefresh}.</Result></div>}
+      {familyRevoked && <div className="token-reuse-result"><Result success={false} title="Old refresh token reused">Reuse can signal theft. Boo Identity revokes this refresh-token family, so token {currentRefresh} cannot refresh again.</Result></div>}
       <Insight label="Practical boundary">Refresh tokens need stronger storage and rotation because they can mint new access tokens. Revoking a refresh-token family does not automatically cancel an already-issued access token at an offline-validating API; its short expiry or another revocation mechanism must handle that.</Insight>
     </DemoFrame>
   </div>

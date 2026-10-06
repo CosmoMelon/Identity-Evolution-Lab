@@ -57,7 +57,7 @@ export function PasswordDemo() {
         <div className="hash-row"><strong>Alex</strong><code>same-demo-password</code><span>salt: {showSalted ? 'A7C2...' : 'none'}</span><code>hash: {showSalted ? '8df2...a19c' : '7c8e...4b21'}</code></div>
         <div className="hash-row"><strong>Priya</strong><code>same-demo-password</code><span>salt: {showSalted ? 'F91B...' : 'none'}</span><code>hash: {showSalted ? '3aa5...e904' : '7c8e...4b21'}</code></div>
       </div>
-      <Button variant="secondary" onClick={() => setShowSalted(value => !value)}>{showSalted ? 'Compare without salts' : 'Add unique salts'} <ArrowRight size={15} /></Button>
+      <div className="salt-action"><Button variant="secondary" onClick={() => setShowSalted(value => !value)}>{showSalted ? 'Compare without salts' : 'Add unique salts'} <ArrowRight size={15} /></Button></div>
       <Insight label={showSalted ? 'Different stored hashes' : 'Same stored hash'}>
         {showSalted ? 'The same password now yields different stored hashes. Attackers cannot reuse one precomputed lookup across every account, and matching hashes no longer reveal shared passwords.' : 'Without salts, identical passwords produce identical hashes. A precomputed table can be reused across many records.'}
       </Insight>

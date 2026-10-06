@@ -1,0 +1,33 @@
+import { useState } from 'react'
+import { ArrowRight, FlaskConical, Info, RotateCcw } from 'lucide-react'
+import { useLab, type Role, type TokenState } from '../store/LabContext'
+import { Button, Eyebrow, Insight, Panel, Status } from '../components/ui'
+import { Result, CodeBlock } from '../components/journey/DemoPrimitives'
+
+const availableScopes = ['expenses:read', 'expenses:approve', 'users:manage']
+const rolePermissions: Record<Role, string[]> = {
+  Employee: ['expenses:read'],
+  Manager: ['expenses:read', 'expenses:approve'],
+  Administrator: availableScopes,
+}
+type Outcome = { code: number, title: string, detail: string } | null
+
+export function PlaygroundPage() {
+  const lab = useLab()
+  const [mode, setMode] = useState<'session' | 'jwt'>('jwt')
+  const [outcome, setOutcome] = useState<Outcome>(null)
+  const [operation, setOperation] = useState('GET /expenses')
+  const required = operation === 'GET /expenses' ? 'expenses:read' : operation === 'POST /expenses/approve' ? 'expenses:approve' : 'users:manage'
+  function callApi() {
+    let result: Exclude<Outcome, null>
+    if (mode === 'session' && !lab.sessionActive) result = { code: 401, title: 'No active session', detail: 'The application cannot find Alex in its session store. Create a session in Journey first.' }
+    else if (mode === 'jwt' && lab.tokenState !== 'valid') result = { code: 401, title: 'Token rejected', detail: lab.tokenState === 'expired' ? 'The token is past its expiry.' : lab.tokenState === 'wrong-audience' ? 'This token was issued for a different API.' : 'A changed token does not match its signature.' }
+    else if (!lab.scopes.includes(required)) result = { code: 403, title: 'Scope missing', detail: `Alex is recognized, but the selected scopes do not include ${required}.` }
+    else if (!rolePermissions[lab.role].includes(required)) result = { code: 403, title: 'Role policy denied access', detail: `${lab.role} is recognized, but that role cannot perform ${operation}.` }
+    else result = { code: 200, title: 'Access granted', detail: `${operation} passed authentication and the ${required} permission check.` }
+    setOutcome(result)
+    lab.log({ type: result.code === 200 ? 'ACCESS_GRANTED' : result.code === 403 ? 'ACCESS_DENIED' : 'JWT_VALIDATION_FAILED', application: operation.includes('users') ? 'Admin API' : 'Expense API', result: result.code === 200 ? 'success' : 'denied', method: mode === 'jwt' ? 'JWT' : 'server session', metadata: { status: result.code, operation, role: lab.role, required, tokenState: lab.tokenState } })
+  }
+  function toggleScope(scope: string) { lab.setScopes(lab.scopes.includes(scope) ? lab.scopes.filter(value => value !== scope) : [...lab.scopes, scope]); setOutcome(null) }
+  return <div className="page-container playground-page"><div className="page-heading"><Eyebrow>THE SANDBOX</Eyebrow><h1>Identity playground<span>.</span></h1><p>Change the inputs. Make a request. See which layer decides the outcome.</p></div><div className="playground-grid"><Panel className="control-panel"><div className="panel-heading"><span className="panel-icon"><FlaskConical size={20} /></span><div><h2>Configure the request</h2><p>All controls are local simulation state.</p></div></div><div className="field-group"><label>Authentication mode</label><div className="segmented"><button className={mode === 'session' ? 'active' : ''} onClick={() => { setMode('session'); setOutcome(null) }}>Server session</button><button className={mode === 'jwt' ? 'active' : ''} onClick={() => { setMode('jwt'); setOutcome(null) }}>JWT access token</button></div></div><div className="field-group"><label htmlFor="pg-role">Role</label><select id="pg-role" value={lab.role} onChange={e => { lab.setRole(e.target.value as Role); setOutcome(null) }}><option>Employee</option><option>Manager</option><option>Administrator</option></select></div><div className="field-group"><label>Scopes / permissions</label><div className="checkbox-list">{availableScopes.map(scope => <label key={scope}><input type="checkbox" checked={lab.scopes.includes(scope)} onChange={() => toggleScope(scope)} /><code>{scope}</code></label>)}</div></div>{mode === 'jwt' && <div className="field-group"><label htmlFor="pg-token">Token state</label><select id="pg-token" value={lab.tokenState} onChange={e => { lab.setTokenState(e.target.value as TokenState); setOutcome(null) }}><option value="valid">Valid</option><option value="expired">Expired</option><option value="wrong-audience">Wrong audience</option><option value="tampered">Tampered</option></select></div>}<button className="text-button" onClick={() => { lab.setRole('Employee'); lab.setScopes(['expenses:read']); lab.setTokenState('valid'); setMode('jwt'); setOutcome(null) }}><RotateCcw size={14} /> Reset controls</button></Panel><div className="playground-output"><Panel><div className="panel-heading"><span className="panel-icon"><ArrowRight size={20} /></span><div><h2>Send a request</h2><p>Choose an endpoint and watch the decision.</p></div></div><label className="field-group">API operation<select value={operation} onChange={e => { setOperation(e.target.value); setOutcome(null) }}><option>GET /expenses</option><option>POST /expenses/approve</option><option>DELETE /users/42</option></select></label><div className="request-preview"><div><small>CALLER</small><strong>Alex Morgan</strong></div><ArrowRight size={18} /><div><small>AUTHENTICATION</small><strong>{mode === 'jwt' ? 'Access token' : 'Server session'}</strong></div><ArrowRight size={18} /><div><small>API</small><strong>{operation.includes('users') ? 'Admin API' : 'Expense API'}</strong></div></div><CodeBlock label="Illustrative request">{operation}<br />{mode === 'jwt' ? 'Authorization: Bearer eyJhbGciOi...' : 'Cookie: session_id=A82F2381...'}<br />Required permission: {required}</CodeBlock><Button onClick={callApi}>Call API <ArrowRight size={16} /></Button>{outcome && <div className="mt-5"><Result success={outcome.code === 200} title={outcome.title} code={`${outcome.code} ${outcome.code === 200 ? 'OK' : outcome.code === 401 ? 'Unauthorized' : 'Forbidden'}`}>{outcome.detail}</Result></div>}</Panel><Insight label="Decision order"><span className="inline-flex items-center gap-2"><Status>1</Status> Is the session or token valid?</span><br /><span className="inline-flex items-center gap-2 mt-2"><Status>2</Status> Does the token have scope and the role have permission?</span></Insight><div className="small-info"><Info size={16} /> This sandbox checks both the selected scopes and a simple role policy. A production API would derive trusted claims and enforce authoritative server-side rules.</div></div></div></div>
+}

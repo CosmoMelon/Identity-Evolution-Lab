@@ -24,7 +24,6 @@ export function JwtDemo() {
   const [expiresAt, setExpiresAt] = useState(() => Math.floor(Date.now() / 1000) + 300)
 
   const claims = { ...baseClaims, role: tampered ? 'admin' : 'manager', exp: expiresAt }
-  const token = `${encode(header)}.${encode(claims)}.${signature}`
   const signatureOk = !tampered && scenario !== 'signature'
   const issuerOk = true
   const audienceOk = scenario !== 'audience'

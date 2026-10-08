@@ -16,9 +16,9 @@ An interactive, frontend-only portfolio application that explains how modern Ide
 
 # Deploy to GitHub Pages
 
-The [Pages workflow](.github/workflows/deploy-pages.yml) runs only when started manually. In the repository's **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**. Then open **Actions → Deploy to GitHub Pages → Run workflow** and choose the branch to publish. The expected project URL is `https://cosmomelon.github.io/Identity-Evolution-Lab/`.
+The [Pages workflow](.github/workflows/deploy-pages.yml) runs only when started manually. In the repository's **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**. Then open **Actions → Deploy to GitHub Pages → Run workflow** and choose the branch to publish. The organization site is expected at `https://identityevolutionlab.github.io/`.
 
-The workflow builds with the repository path as Vite's base URL and includes a `404.html` fallback so direct links to the app's browser routes can load. Local development continues to use `/` as its base URL.
+The workflow builds with `/` as Vite's base URL and includes a `404.html` fallback so direct links to the app's browser routes can load.
 
 ## Stack and architecture
 
